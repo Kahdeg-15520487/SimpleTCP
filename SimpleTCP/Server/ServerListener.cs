@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -99,13 +100,6 @@ namespace SimpleTCP.Server
 
             foreach (var c in _connectedClients)
             {
-                int bytesAvailable = c.Available;
-                if (bytesAvailable == 0)
-                {
-                    //Thread.Sleep(10);
-                    continue;
-                }
-
                 List<byte> bytesReceived = new List<byte>();
 
                 while (c.Available > 0 && c.Connected)
@@ -130,11 +124,25 @@ namespace SimpleTCP.Server
                     _parent.NotifyEndTransmissionRx(this, c, bytesReceived.ToArray());
                 }
 
-                if (!c.Connected)
+                if (IsDisconnected(c))
                 {
                     _disconnectedClients.Add(c);
                 }                
             }
+        }
+
+        private bool IsDisconnected(TcpClient c)
+        {
+            var state = GetState(c);
+            return state == TcpState.Closed || state == TcpState.Unknown;
+        }
+
+        private TcpState GetState(TcpClient c)
+        {
+            var foo = IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveTcpConnections()
+                .SingleOrDefault(x => x.LocalEndPoint.Equals(c.Client.LocalEndPoint));
+            return foo != null ? foo.State : TcpState.Unknown;
         }
     }
 }
